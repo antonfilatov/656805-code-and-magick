@@ -41,8 +41,9 @@ var ANIMATION_PARAMS = {
   }
 };
 
-var HEADER_LINES = ['Ура вы победили!', 'Список результатов:'];
+var previousAnimationSemaphore = null;
 
+var HEADER_LINES = ['Ура вы победили!', 'Список результатов:'];
 
 var getMaxTime = function (playersParams) {
   var maxTime = playersParams[0].time;
@@ -108,7 +109,12 @@ var renderLegend = function (ctx, left, top, offsetRight, playersParams) {
   }
 };
 
-var renderBars = function (ctx, left, bottom, width, marginRight, maxHeight, playersParams, animationStep) {
+var renderBars = function (ctx, left, bottom, width, marginRight, maxHeight, playersParams, animationStep, animationSemaphore) {
+  // immediately exit if animation interrupted
+  if (animationSemaphore.interrupted) {
+    return;
+  }
+
   var maxTime = getMaxTime(playersParams);
 
   var animationCoefficient = -Math.pow(animationStep / ANIMATION_PARAMS.steps, 2) + 2 * (animationStep / ANIMATION_PARAMS.steps);
@@ -133,7 +139,7 @@ var renderBars = function (ctx, left, bottom, width, marginRight, maxHeight, pla
 
   if (animationStep++ <= ANIMATION_PARAMS.steps) {
     setTimeout(function () {
-      renderBars(ctx, left, bottom, width, marginRight, maxHeight, playersParams, animationStep);
+      renderBars(ctx, left, bottom, width, marginRight, maxHeight, playersParams, animationStep, animationSemaphore);
     }, ANIMATION_PARAMS.getStepDuration());
   }
 };
@@ -145,10 +151,19 @@ var renderHistogram = function (ctx, left, top, width, height, playersParams) {
 
   var barsLeft = left;
   var barsBottom = legendTop - FONT.lineHeight / 2;
-  renderBars(ctx, barsLeft, barsBottom, HISTOGRAM_PARAMS.barWidth, HISTOGRAM_PARAMS.barMargin, HISTOGRAM_PARAMS.maxBarHeight, playersParams, 1);
+  var animationSemaphore = {
+    interrupted: false
+  };
+  previousAnimationSemaphore = animationSemaphore;
+  renderBars(ctx, barsLeft, barsBottom, HISTOGRAM_PARAMS.barWidth, HISTOGRAM_PARAMS.barMargin, HISTOGRAM_PARAMS.maxBarHeight, playersParams, 1, animationSemaphore);
 };
 
 window.renderStatistics = function (ctx, players, times) {
+  // stop animations if previous animation in process
+  if (previousAnimationSemaphore !== null) {
+    previousAnimationSemaphore.interrupted = true;
+  }
+
   renderCloud(ctx);
   var headerLeft = CLOUD_PARAMS.left + CLOUD_PARAMS.paddingLeft;
   var headerTop = CLOUD_PARAMS.top + CLOUD_PARAMS.paddingTop;
